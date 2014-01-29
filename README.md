@@ -27,5 +27,11 @@ fab -H root@<host> build
 fab -H root@192.293.48.10 build
 ```
 
+or, to build multiple servers at the same time
+
+```console
+fab -H root@192.111.11.11,root@192.222.22.22,root@192.333.33.33 build
+```
+
 
 [fabfile]: http://docs.fabfile.org/en/latest/
