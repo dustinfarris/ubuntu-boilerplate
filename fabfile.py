@@ -42,6 +42,7 @@ def build():
 
     if nginx:
         run('apt-get install nginx -qy')
+        put('./nginx.conf', '/etc/nginx/nginx.conf', mode=644)
         put('./proxy_params', '/etc/nginx/proxy_params', mode=644)
 
     if memcached:
