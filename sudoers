@@ -1,0 +1,19 @@
+# This sudoers grants certain sudo privileges to a 'web' user so it can perform
+# basic web operations (like restarting Nginx, Memcached, etc..)
+
+Defaults  env_reset
+Defaults  secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+Cmnd_Alias WEB_CONFIG_COMMANDS=/bin/ln -sfn /var/www/* /etc/nginx/sites-available/., /bin/ln -sfn /var/www/* /etc/apache2/sites-available/., /bin/ln -sfn /etc/nginx/sites-available/* /etc/nginx/sites-enabled/., /bin/ln -sfn /etc/apache2/sites-available/* /etc/apache2/sites-enabled/.
+Cmnd_Alias WEB_SECURE_COMMANDS=/bin/mkdir -p /etc/nginx/htpasswd, /usr/bin/htpasswd -bc /etc/nginx/htpasswd/* * *
+Cmnd_Alias WEB_SERVER_COMMANDS=/usr/sbin/service apache2 restart, /usr/sbin/service memcached restart, /usr/sbin/service nginx restart
+Cmnd_Alias CELERY_COMMANDS=/usr/sbin/service celeryd restart, /usr/sbin/service celerybeat restart
+Cmnd_Alias SOLR_COMMANDS=/bin/ln -sfn /var/www/* /opt/solr/django/multicore/*/conf/schema.xml, /usr/sbin/service solr restart
+Cmnd_Alias SUPERVISOR_COMMANDS=/usr/bin/supervisorctl reread, /usr/bin/supervisorctl update, /usr/bin/supervisorctl restart all
+
+root  ALL=(ALL:ALL) ALL
+%admin  ALL=(ALL) NOPASSWD: ALL
+%sudo ALL=(ALL:ALL) ALL
+web ALL=NOPASSWD: WEB_SERVER_COMMANDS, WEB_CONFIG_COMMANDS, WEB_SECURE_COMMANDS, CELERY_COMMANDS, SOLR_COMMANDS, SUPERVISOR_COMMANDS
+
+#includedir /etc/sudoers.d
