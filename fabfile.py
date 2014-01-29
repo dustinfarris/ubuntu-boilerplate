@@ -6,6 +6,7 @@ from fabric.contrib.console import confirm
 def build():
     postgres = confirm("Install PostgreSQL?", default=False)
     nginx = confirm("Install NGINX?", default=False)
+    memcached = confirm("Install Memcached?", default=False)
     redis = confirm("Install Redis?", default=False)
     rabbitmq = confirm("Install RabbitMQ?", default=False)
     supervisor = confirm("Install Supervisor?", default=False)
@@ -41,6 +42,10 @@ def build():
 
     if nginx:
         run('apt-get install nginx -qy')
+        put('./proxy_params', '/etc/nginx/proxy_params', mode=644)
+
+    if memcached:
+        run('apt-get install memcached -qy')
 
     if redis:
         run('apt-get install redis-server -qy')
