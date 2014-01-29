@@ -26,3 +26,6 @@ fab -H root@<host> build
 ```console
 fab -H root@192.293.48.10 build
 ```
+
+
+[fabfile]: http://docs.fabfile.org/en/latest/
