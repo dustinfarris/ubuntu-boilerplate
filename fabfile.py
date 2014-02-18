@@ -26,6 +26,13 @@ def build(flavor=None):
         redis = False
         rabbitmq = False
         supervisor = False
+    elif flavor == 'cms':
+        postgres = True
+        nginx = True
+        memcached = True
+        redis = True
+        rabbitmq = True
+        supervisor = True
     else:
         postgres = confirm("Install PostgreSQL?", default=False)
         nginx = confirm("Install NGINX?", default=False)
