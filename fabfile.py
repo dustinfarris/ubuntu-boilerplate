@@ -81,6 +81,9 @@ def build(flavor=None):
 
     run('useradd admin -Um -s /bin/bash -p %s' % admin_crypt)
 
+    # Node
+    run('apt-get install npm -qy')
+
     # Python 3.x stuff
     run('apt-get install build-essential gcc python3-dev python3-setuptools bash-completion htop ipython3 -qy')
     run('easy_install3 pip')
