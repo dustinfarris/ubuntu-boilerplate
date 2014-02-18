@@ -81,8 +81,11 @@ def build(flavor=None):
 
     run('useradd admin -Um -s /bin/bash -p %s' % admin_crypt)
 
-    # Node
-    run('apt-get install npm -qy')
+    # NodeJS
+    run('apt-get install python-software-properties python g++ make -qy')
+    run('add-apt-repository ppa:chris-lea/node.js -y')
+    run('apt-get update -q')
+    run('apt-get install nodejs -qy')
 
     # Python 3.x stuff
     run('apt-get install build-essential gcc python3-dev python3-setuptools bash-completion htop ipython3 -qy')
