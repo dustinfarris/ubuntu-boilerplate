@@ -6,10 +6,10 @@ from fabric.contrib.console import confirm
 @task
 def build(flavor=None):
     if flavor == 'app':
-        postgres = False
+        postgres = True
         nginx = True
         memcached = True
-        redis = False
+        redis = True
         rabbitmq = True
         supervisor = True
     elif flavor == 'db':
@@ -81,6 +81,12 @@ def build(flavor=None):
 
     run('useradd admin -Um -s /bin/bash -p %s' % admin_crypt)
 
+    # Celery (configs only)
+    put('./celerybeat.default', '/etc/default/celerybeat', mode=0644)
+    put('./celeryd.default', '/etc/default/celeryd', mode=0644)
+    put('./celerybeat.initd', '/etc/init.d/celerybeat', mode=0755)
+    put('./celeryd.initd', '/etc/init.d/celeryd', mode=0755)
+
     # NodeJS
     run('apt-get install python-software-properties python g++ make -qy')
     run('add-apt-repository ppa:chris-lea/node.js -y')
@@ -94,8 +100,13 @@ def build(flavor=None):
     run('apt-get install git-core mercurial subversion -qy')
     run('apt-get install python3-imaging libpq-dev -qy')
 
+    # uWSGI
+    run('pip install http://projects.unbit.it/downloads/uwsgi-lts.tar.gz')
+    run('mkdir -p /etc/uwsgi/vassals')
+    run('echo "/usr/local/bin/uwsgi --emperor /etc/uwsgi/vassals --uid web --gid web" >> /etc/rc.local')
+
     if postgres:
-        run('apt-get install postgresql-server-dev-9.1 postgresql-9.1 -qy')
+        run('apt-get install postgresql-server-dev-9.3 postgresql-9.3 -qy')
 
     if nginx:
         run('apt-get install nginx -qy')
