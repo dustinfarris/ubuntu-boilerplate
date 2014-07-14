@@ -4,6 +4,15 @@ from fabric.contrib.console import confirm
 
 
 @task
+def celery():
+    put('./celerybeat.default', '/etc/default/celerybeat', mode=0644, use_sudo=True)
+    put('./celeryd.default', '/etc/default/celeryd', mode=0644, use_sudo=True)
+    put('./celerybeat.initd', '/etc/init.d/celerybeat', mode=0755, use_sudo=True)
+    put('./celeryd.initd', '/etc/init.d/celeryd', mode=0755, use_sudo=True)
+    run('mkdir -p /var/run/celery')
+
+
+@task
 def build(flavor=None):
     if flavor == 'app':
         postgres = True
@@ -104,6 +113,7 @@ def build(flavor=None):
     run('pip install http://projects.unbit.it/downloads/uwsgi-lts.tar.gz')
     run('mkdir -p /etc/uwsgi/vassals')
     run('echo "/usr/local/bin/uwsgi --emperor /etc/uwsgi/vassals --uid web --gid web" >> /etc/rc.local')
+    run('mkdir -p /var/uwsgi')
 
     if postgres:
         run('apt-get install postgresql-server-dev-9.3 postgresql-9.3 -qy')
