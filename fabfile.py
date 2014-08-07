@@ -110,10 +110,12 @@ def build(flavor=None):
     run('apt-get install python3-imaging libpq-dev -qy')
 
     # uWSGI
+    run('apt-get install libpcre3 libpcre3-dev -qy')
     run('pip install http://projects.unbit.it/downloads/uwsgi-lts.tar.gz')
     run('mkdir -p /etc/uwsgi/vassals')
-    run('echo "/usr/local/bin/uwsgi --emperor /etc/uwsgi/vassals --uid web --gid web" >> /etc/rc.local')
-    run('mkdir -p /var/uwsgi')
+    run('echo "/usr/local/bin/uwsgi --emperor /etc/uwsgi/vassals --uid web --gid web\nexit 0" > /etc/rc.local')
+    run('mkdir -p /var/log/uwsgi')
+    # TODO: Add 'web' user and chown on uwsgi log dir
 
     if postgres:
         run('apt-get install postgresql-server-dev-9.3 postgresql-9.3 -qy')
