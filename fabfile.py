@@ -111,9 +111,9 @@ def build(flavor=None):
 
     # uWSGI
     run('apt-get install libpcre3 libpcre3-dev -qy')
-    run('pip install http://projects.unbit.it/downloads/uwsgi-lts.tar.gz')
+    run('pip install uwsgi')
     run('mkdir -p /etc/uwsgi/vassals')
-    run('echo "/usr/local/bin/uwsgi --emperor /etc/uwsgi/vassals --uid web --gid web\nexit 0" > /etc/rc.local')
+    put('./uwsgi.conf', '/etc/init/uwsgi.conf', mode=0644)
     run('mkdir -p /var/log/uwsgi')
     # TODO: Add 'web' user and chown on uwsgi log dir
 
