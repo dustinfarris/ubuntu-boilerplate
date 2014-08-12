@@ -102,6 +102,7 @@ def build(flavor=None):
     sudo('echo "alias activate=\'source env/bin/activate\'" > /var/www/.bash_aliases', user='web', shell=False)
     put('~/.ssh/id_rsa.pub', '/var/www/.ssh/authorized_keys', mode=0644)
     run('chown web: /var/www/.ssh/authorized_keys')
+    run('chown web: /var/www/.bash_aliases')
 
     # Create backups user
     run('rm -rf /var/backups')
