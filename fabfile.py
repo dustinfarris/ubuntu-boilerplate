@@ -2,7 +2,6 @@ from fabric.api import *
 from fabric.contrib.console import confirm
 
 
-
 @task
 def celery():
     put('./celerybeat.default', '/etc/default/celerybeat', mode=0644, use_sudo=True)
@@ -14,6 +13,7 @@ def celery():
 
 @task
 def build(flavor=None):
+    server_name = prompt('Server name: ', default='NEWSERVER')
     if flavor == 'app':
         postgres = True
         nginx = True
@@ -72,6 +72,9 @@ def build(flavor=None):
 
     put('./sshd_config', '/etc/ssh/sshd_config', mode=0644)
 
+    run('hostname %s' % server_name)
+    run('echo "%s %s" >> /etc/hosts' % (env.host_string.split('@')[-1], server_name))
+
     # Create admin user
     import string
     import random
@@ -89,12 +92,32 @@ def build(flavor=None):
     admin_crypt = crypt.crypt(admin_password, salt)
 
     run('useradd admin -Um -s /bin/bash -p %s' % admin_crypt)
+    sudo('ssh-keygen -t rsa -f /home/admin/.ssh/id_rsa -C "admin@%s" -q -N ""' % server_name, user='admin', shell=False)
+    put('~/.ssh/id_rsa.pub', '/home/admin/.ssh/authorized_keys', mode=0644)
+    run('chown admin: /home/admin/.ssh/authorized_keys')
+
+    # Create web user
+    run('useradd --system --shell=/bin/bash --home=/var/www --create-home web')
+    sudo('ssh-keygen -t rsa -f /var/www/.ssh/id_rsa -C "web@%s" -q -N ""' % server_name, user='web', shell=False)
+    sudo('echo "alias activate=\'source env/bin/activate\'" > /var/www/.bash_aliases', user='web', shell=False)
+    put('~/.ssh/id_rsa.pub', '/var/www/.ssh/authorized_keys', mode=0644)
+    run('chown web: /var/www/.ssh/authorized_keys')
+
+    # Create backups user
+    run('rm -rf /var/backups')
+    run('useradd --system --shell=/bin/bash --home=/var/backups --create-home backups')
+    sudo('ssh-keygen -t rsa -f /var/backups/.ssh/id_rsa -C "backups@%s" -q -N ""' % server_name, user='backups', shell=False)
+    put('~/.ssh/id_rsa.pub', '/var/backups/.ssh/authorized_keys', mode=0644)
+    sudo('cat /var/www/.ssh/id_rsa.pub >> /var/backups/.ssh/authorized_keys')
+    run('chown backups: /var/backups/.ssh/authorized_keys')
 
     # Celery (configs only)
     put('./celerybeat.default', '/etc/default/celerybeat', mode=0644)
     put('./celeryd.default', '/etc/default/celeryd', mode=0644)
     put('./celerybeat.initd', '/etc/init.d/celerybeat', mode=0755)
     put('./celeryd.initd', '/etc/init.d/celeryd', mode=0755)
+    run('mkdir -p /var/run/celery')
+    run('chown web: /var/run/celery')
 
     # NodeJS
     run('apt-get install python-software-properties python g++ make -qy')
@@ -115,10 +138,11 @@ def build(flavor=None):
     run('mkdir -p /etc/uwsgi/vassals')
     put('./uwsgi.conf', '/etc/init/uwsgi.conf', mode=0644)
     run('mkdir -p /var/log/uwsgi')
-    # TODO: Add 'web' user and chown on uwsgi log dir
+    run('chown web: /var/log/uwsgi')
 
     if postgres:
         run('apt-get install postgresql-server-dev-9.3 postgresql-9.3 -qy')
+        sudo('createuser -s web', user='postgres', shell=False)
 
     if nginx:
         run('apt-get install nginx -qy')
