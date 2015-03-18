@@ -52,7 +52,7 @@ def build(flavor=None):
 
     run('apt-get update -q')
     run('apt-get upgrade -qy')
-    run('apt-get install git-core vim -qy')
+    run('apt-get install tmux git-core vim -qy')
     run('update-alternatives --set editor /usr/bin/vim.basic')
 
     put('./sudoers', '/etc/sudoers', mode=0440)
