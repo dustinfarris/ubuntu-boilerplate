@@ -127,7 +127,7 @@ def build(flavor=None):
     run('apt-get install nodejs -qy')
 
     # Python 3.x stuff
-    run('apt-get install build-essential gcc python3-dev python3-setuptools bash-completion htop ipython3 -qy')
+    run('apt-get install build-essential gcc python3-dev python3-setuptools bash-completion htop libjpeg-dev ipython3 -qy')
     run('easy_install3 pip')
     run('pip install ipdb virtualenv')
     run('apt-get install git-core mercurial subversion -qy')
