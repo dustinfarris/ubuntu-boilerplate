@@ -1,8 +1,0 @@
-export DJANGO_SETTINGS_MODULE="myproject.settings"
-CELERY_BIN="/var/www/myproject/env/bin/celery"
-CELERY_APP="myproject"
-CELERY_CHDIR="/var/www/myproject"
-CELERYBEAT_CHDIR="/var/www/myproject"
-CELERYBEAT_OPTS="--schedule=/var/run/celery/celerybeat-schedule"
-CELERYBEAT_USER="web"
-CELERYBEAT_GROUP="web"
