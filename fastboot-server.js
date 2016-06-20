@@ -1,9 +1,11 @@
+"use strict";
+
 const S3Downloader = require('fastboot-s3-downloader');
 const S3Notifier = require('fastboot-s3-notifier');
 const FastBootAppServer = require('fastboot-app-server');
 
-const s3Bucket = 'S3BUCKETCHANGEME';
-const s3Key = 'S3KEYCHANGEME';
+const s3Bucket = 'S3_BUCKET';
+const s3Key = 'S3_KEY';
 
 let downloader = new S3Downloader({
   bucket: s3Bucket,

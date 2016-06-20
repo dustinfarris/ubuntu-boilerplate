@@ -10,7 +10,10 @@ def build(flavor=None):
         nginx = True
         memcached = False
         redis = False
-        supervisor = False
+        supervisor = True
+        domain_name = prompt('Domain name: ', default='example.com')
+        s3_bucket = prompt('S3 Bucket: ')
+        s3_key = prompt('S3 Key: ')
     elif flavor == 'phoenix':
         postgres = True
         nginx = True
@@ -24,9 +27,9 @@ def build(flavor=None):
         redis = confirm("Install Redis?", default=False)
         supervisor = confirm("Install Supervisor?", default=False)
 
-    run('apt-get update -q')
-    run('apt-get upgrade -qy')
-    run('apt-get install tmux git-core vim -qy')
+    run('apt update -q')
+    run('apt upgrade -qy')
+    run('apt install tmux git-core vim unzip -qy')
     run('update-alternatives --set editor /usr/bin/vim.basic')
 
     put('./sudoers', '/etc/sudoers', mode=0440)
@@ -55,7 +58,7 @@ def build(flavor=None):
     import crypt
 
     characters = string.letters + string.digits + '!@#$%^&*()-_=+~{[}],.<>?'
-    password_size = 30
+    password_size = 50
     # A possible 10,838,109,570,573,913,960,623,703,697,505,423,039,374,700,588,527,754,674,176
     # variations with this algorithm
     admin_password = ''.join((random.choice(characters) for x in range(password_size)))
@@ -79,34 +82,57 @@ def build(flavor=None):
     # NPM
     run('apt install npm -qy')
 
-    if postgres:
-        run('apt-get install postgresql-server-dev-9.3 postgresql-9.3 -qy')
-        sudo('createuser -s web', user='postgres', shell=False)
-        # Create backups user
-        run('rm -rf /var/backups')
-        run('useradd --system --shell=/bin/bash --home=/var/backups --create-home backups')
-        sudo('ssh-keygen -t rsa -f /var/backups/.ssh/id_rsa -C "backups@%s" -q -N ""' % server_name, user='backups', shell=False)
-        put('~/.ssh/id_rsa.pub', '/var/backups/.ssh/authorized_keys', mode=0644)
-        sudo('cat /var/web/.ssh/id_rsa.pub >> /var/backups/.ssh/authorized_keys')
-        run('chown backups: /var/backups/.ssh/authorized_keys')
+    # Pip
+    run('apt install python-setuptools python-dev build-essential -qy')
+    run('easy_install pip')
 
-    if nginx:
-        run('apt-get install nginx -qy')
-        put('./nginx.conf', '/etc/nginx/nginx.conf', mode=0644)
-        put('./proxy_params', '/etc/nginx/proxy_params', mode=0644)
+    try:
+        if postgres:
+            run('apt install postgresql-server-dev-9.3 postgresql-9.3 -qy')
+            sudo('createuser -s web', user='postgres', shell=False)
+            # Create backups user
+            run('rm -rf /var/backups')
+            run('useradd --system --shell=/bin/bash --home=/var/backups --create-home backups')
+            sudo('ssh-keygen -t rsa -f /var/backups/.ssh/id_rsa -C "backups@%s" -q -N ""' % server_name, user='backups', shell=False)
+            put('~/.ssh/id_rsa.pub', '/var/backups/.ssh/authorized_keys', mode=0644)
+            sudo('cat /var/web/.ssh/id_rsa.pub >> /var/backups/.ssh/authorized_keys')
+            run('chown backups: /var/backups/.ssh/authorized_keys')
 
-    if memcached:
-        run('apt-get install memcached -qy')
+        if nginx:
+            run('apt install nginx -qy')
+            run("sed -i 's/www-data/web/g' /etc/nginx/nginx.conf")
+            put('./nginx-proxy-params', '/etc/nginx/proxy_params', mode=0644)
+            put('./nginx-ssl-params', '/etc/nginx/ssl_params', mode=0644)
+            run('openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048')
+            run('git clone https://github.com/letsencrypt/letsencrypt /opt/letsencrypt')
 
-    if redis:
-        run('apt-get install redis-server -qy')
+        if memcached:
+            run('apt install memcached -qy')
 
-    if supervisor:
-        run('apt-get install supervisor -qy')
+        if redis:
+            run('apt install redis-server -qy')
 
-    if flavor == 'ember':
-        run('npm install -g fastboot-app-server')
-        put('./ember-server.js', '/var/web/server.js', mode=0644)
-        run('chown web: /var/web/server.js')
+        if supervisor:
+            run('apt install supervisor -qy')
 
-    print "\n\nADMIN PASSWORD\n\n%s\n\n" % admin_password
+        if flavor == 'ember':
+            run('pip install awscli')
+            put('./fastboot-server.js', '/var/web/server.js', mode=0644)
+            run('chown web: /var/web/server.js')
+            run("sed -i 's/S3_BUCKET/%s/g' /var/web/server.js" % s3_bucket)
+            run("sed -i 's/S3_KEY/%s/g' /var/web/server.js" % s3_key)
+            put('./fastboot-nginx.conf', '/etc/nginx/sites-available/%s.conf' % domain_name, mode=0644)
+            run("sed -i 's/DOMAIN_NAME/{domain}/g' /etc/nginx/sites-available/{domain}.conf".format(domain=domain_name))
+            sudo('ln -sfn /etc/nginx/sites-available/{domain}.conf /etc/nginx/sites-enabled/{domain}.conf'.format(domain=domain_name))
+            put('./fastboot-supervisor', '/etc/supervisor/conf.d/fastboot.conf', mode=0644)
+            run('service nginx reload')
+            print "\n\nYour Ember server is almost ready, be sure to:\n\n"
+            print "\tRun letsencrypt\n"
+            print "\tAdd letsencrypt to crontab\n"
+            print "\tUncomment SSL lines in Nginx config\n"
+            print "\tInstall fastboot and dependencies as web user\n"
+            print "\tUpdate AWS credentials using `aws configure`"
+            print "\tRestart nginx and supervisor\n"
+    finally:
+        print "\n\nDone!\n\n"
+        print "\n\nADMIN PASSWORD\n\n%s\n\n" % admin_password

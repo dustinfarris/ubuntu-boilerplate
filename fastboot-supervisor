@@ -1,0 +1,5 @@
+[program:fastboot]
+command=/usr/bin/nodejs /var/web/server.js
+directory=/var/web
+environment=HOME="/var/web",USER="web"
+user=web
