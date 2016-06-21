@@ -1,0 +1,6 @@
+domains = DOMAIN_NAME
+email = USER_EMAIL
+text = True
+authenticator = webroot
+webroot-path = /var/web/letsencrypt
+agree-tos = True

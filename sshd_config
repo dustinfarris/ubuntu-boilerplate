@@ -38,4 +38,4 @@ AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 
-AllowUsers admin web backups
+AllowUsers admin web backups builder
