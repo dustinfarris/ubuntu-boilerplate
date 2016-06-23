@@ -1,12 +1,25 @@
-import string
-import random
+import base64
 import crypt
+import os
+import random
+import string
 
 from fabric.api import *
 from fabric.contrib.console import confirm
 
 
 admin_password = ''
+
+
+def generate_secret_key(length=64):
+    return base64.b64encode(os.urandom(length))[:length]
+
+
+def run_as(command, user):
+    # This complicated wrapper allows us to run a command as a user as if the
+    # user had logged in (getting all the .bashrc stuff, environment variables, etc)
+    command = command.replace('$', '\\$').replace('"', '\\"')
+    run('sudo -i -u {user} /bin/bash -lic "{command}"'.format(user=user, command=command), shell=False)
 
 
 def do_basics(server_name):
@@ -33,7 +46,8 @@ def do_basics(server_name):
     put('./sshd_config', '/etc/ssh/sshd_config', mode=0644)
 
     run('hostname %s' % server_name)
-    run('echo "%s %s" >> /etc/hosts' % (env.host_string.split('@')[-1], server_name))
+    run('echo "%s" > /etc/hostname' % server_name)
+    run('echo "127.0.1.1 %s" >> /etc/hosts' % server_name)
 
     # NPM
     run('apt install npm -qy')
@@ -72,14 +86,18 @@ def do_create_web_user(server_name):
     sudo('ssh-keygen -t rsa -f /var/web/.ssh/id_rsa -C "web@%s" -q -N ""' % server_name, user='web', shell=False)
     put('~/.ssh/id_rsa.pub', '/var/web/.ssh/authorized_keys', mode=0644)
     run('chown web: /var/web/.ssh/authorized_keys')
+    run_as('ssh-keygen -t rsa -f ~/ci_key -C "CI@{project}" -q -N ""'.format(project=project_name), user='web')
+    run_as('cat ~/ci_key.pub >> ~/.ssh/authorized_keys', user='web')
 
 
-def do_create_builder_user(server_name):
+def do_create_builder_user(server_name, project_name):
     # Create web user
-    run('useradd -system --shell=/bin/bash --create-home builder')
+    run('useradd --system --shell=/bin/bash --create-home builder')
     sudo('ssh-keygen -t rsa -f /home/builder/.ssh/id_rsa -C "builder@%s" -q -N ""' % server_name, user='builder', shell=False)
     put('~/.ssh/id_rsa.pub', '/home/builder/.ssh/authorized_keys', mode=0644)
-    run('chown builder: /var/web/.ssh/authorized_keys')
+    run('chown builder: /home/builder/.ssh/authorized_keys')
+    run_as('ssh-keygen -t rsa -f ~/ci_key -C "CI@{project}" -q -N ""'.format(project=project_name), user='builder')
+    run_as('cat ~/ci_key.pub >> ~/.ssh/authorized_keys', user='builder')
 
 
 def do_install_postgres(server_name):
@@ -136,6 +154,27 @@ def do_install_supervisor():
     run('apt install supervisor -qy')
 
 
+def do_install_erlang_elixir(erlang_version, elixir_version, user):
+    # Erlang requirements
+    run('apt install libncurses5-dev -qy')
+    # We will use asdf package manager for erlang and elixir
+    # Note that this will compile erlang and elixir which can take a while
+    run_as('git clone https://github.com/asdf-vm/asdf.git ~/.asdf', user=user)
+    # These have to go in .profile because automators may not use bash
+    run_as("echo '. $HOME/.asdf/asdf.sh' >> ~/.profile", user=user)
+    run_as("echo '. $HOME/.asdf/completions/asdf.bash' >> ~/.profile", user=user)
+    # Install erlang and elixir
+    run_as("asdf plugin-add erlang https://github.com/asdf-vm/asdf-erlang.git", user=user)
+    run_as("asdf plugin-add elixir https://github.com/asdf-vm/asdf-elixir.git", user=user)
+    run_as("asdf install erlang {version}".format(version=erlang_version), user=user)
+    run_as("asdf global erlang {version}".format(version=erlang_version), user=user)
+    run_as("asdf install elixir {version}".format(version=elixir_version), user=user)
+    run_as("asdf global elixir {version}".format(version=elixir_version), user=user)
+    # A couple necessities
+    run_as("mix local.hex --force", user=user)
+    run_as("mix local.rebar --force", user=user)
+
+
 def do_configure_aws(aws_access_key_id, aws_secret_access_key):
     run('pip install awscli')
     run('mkdir -p /var/web/.aws')
@@ -178,10 +217,9 @@ def do_ember(project_name):
     put('./fastboot-nginx.conf', '/etc/nginx/sites-available/%s.conf' % domain_name, mode=0644)
     do_letsencrypt(domain_name, email)
     put('./fastboot-supervisor', '/etc/supervisor/conf.d/fastboot.conf', mode=0644)
+    run_as('npm install fastboot-app-server fastboot-s3-downloader fastboot-s3-notifier', user='web')
     run('service supervisor restart')
-    print "\n\nYour Ember server is almost ready, be sure to:\n\n"
-    print "\tInstall fastboot and dependencies as web user\n"
-    print "\tRestart supervisor\n"
+    print "\n\nYour Ember server is ready.\n\n"
 
 
 def do_phoenix(project_name):
@@ -205,12 +243,50 @@ def do_phoenix(project_name):
     print "\n\nYour Phoenix server is ready.\n\n"
 
 
+def put_phoenix_secret_config(environment, project_name, db_user, db_pass):
+    run_as('mkdir -p ~/_config', user='builder')
+    secret_path = '/home/builder/_config/{env}.secret.exs'.format(env=environment)
+    put('./secret.exs', secret_path, mode=0644)
+    secret_key = generate_secret_key().replace('/', '\\/')
+    run("sed -i 's/SECRET_KEY/{secret_key}/g' {path}".format(secret_key=secret_key, path=secret_path))
+    run("sed -i 's/Example/{project}/g' {path}".format(project=project_name.capitalize(), path=secret_path))
+    run("sed -i 's/example/{project}/g' {path}".format(project=project_name, path=secret_path))
+    run("sed -i 's/DB_USER/{db_user}/g' {path}".format(db_user=db_user, path=secret_path))
+    run("sed -i 's/DB_PASS/{db_pass}/g' {path}".format(db_pass=db_pass, path=secret_path))
+    run('chown -R builder: /home/builder/_config')
+
+
+def setup_build_scripts(github_path):
+    # Nevermind this is a bad idea for now
+    project_name = github_path.split('/')[-1]
+    put('./build.sh', '/home/builder/build', mode=0755)
+    run('chown builder: /home/builder/build')
+    path = github_path.replace('/', '\\/')
+    run("sed -i 's/GITHUB_PATH/{path}/g' /home/builder/build".format(path=path))
+    run("sed -i 's/PROJECT_NAME/{name}/g' /home/builder/build".format(name=project_name))
+    run_as('mkdir -p ~/_source', user='builder')
+
+
 def do_build(project_name):
+    # github_path = prompt('GitHub path: ', default='dustinfarris/%s' % project_name)
     server_name = prompt('Server name: ', default='%s-build' % project_name)
+    erlang_version = prompt('Erlang version: ', default='18.3')
+    elixir_version = prompt('Elixir version: ', default='1.2.6')
+    prod_db_user = prompt('DB username (prod): ', default='web')
+    prod_db_pass = prompt('DB password (prod): ', default=generate_secret_key(20))
+    stage_db_user = prompt('DB username (stage): ', default='web')
+    stage_db_pass = prompt('DB password (stage): ', default=generate_secret_key(20))
     do_basics(server_name)
     do_create_admin(server_name)
-    do_create_builder_user(server_name)
-    print "\n\nYour build server is ready.\n\n"
+    do_create_builder_user(server_name, project_name)
+
+    do_install_erlang_elixir(erlang_version, elixir_version, user='builder')
+
+    put_phoenix_secret_config('prod', project_name, prod_db_user, prod_db_pass)
+    put_phoenix_secret_config('stage', project_name, stage_db_user, stage_db_pass)
+
+    print "\n\nYour build server is almost ready.  Remember to:\n\n"
+    print "\t- Update config in /home/builder/_config/*.secret.exs\n"
 
 
 @task
