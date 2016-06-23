@@ -248,6 +248,7 @@ def put_phoenix_secret_config(environment, project_name, db_user, db_pass):
     secret_path = '/home/builder/_config/{env}.secret.exs'.format(env=environment)
     put('./secret.exs', secret_path, mode=0644)
     secret_key = generate_secret_key().replace('/', '\\/')
+    db_pass = db_pass.replace('/', '\\/')
     run("sed -i 's/SECRET_KEY/{secret_key}/g' {path}".format(secret_key=secret_key, path=secret_path))
     run("sed -i 's/Example/{project}/g' {path}".format(project=project_name.capitalize(), path=secret_path))
     run("sed -i 's/example/{project}/g' {path}".format(project=project_name, path=secret_path))
