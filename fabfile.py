@@ -138,6 +138,7 @@ def do_letsencrypt(domain_name, email):
 def do_install_nginx(domain_name):
     run('apt install nginx -qy')
     run("sed -i 's/www-data/web/g' /etc/nginx/nginx.conf")
+    run('chown web -R /var/log/nginx')
     put('./nginx-proxy-params', '/etc/nginx/proxy_params', mode=0644)
     put('./nginx-ssl-params', '/etc/nginx/ssl_params', mode=0644)
 
