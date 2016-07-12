@@ -157,7 +157,13 @@ def do_install_supervisor():
 
 def do_install_erlang_elixir(erlang_version, elixir_version, user):
     # Erlang requirements
-    run('apt install libncurses5-dev -qy')
+    run('apt install -qy autoconf m4 libncurses5-dev')
+    # For building with wxWidgets
+    run('apt install -qy libwxgtk3.0-dev libgl1-mesa-dev libglu1-mesa-dev libpng3')
+    # For building ssl (libssh-4 libssl-dev zlib1g-dev)
+    run('apt install -qy libssh-dev')
+    # ODBC support (libltdl3-dev odbcinst1debian2 unixodbc)
+    run('apt install -qy unixodbc-dev')
     # We will use asdf package manager for erlang and elixir
     # Note that this will compile erlang and elixir which can take a while
     run_as('git clone https://github.com/asdf-vm/asdf.git ~/.asdf', user=user)
