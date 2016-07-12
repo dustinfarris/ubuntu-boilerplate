@@ -25,7 +25,7 @@ def run_as(command, user):
 def do_basics(server_name):
     run('apt update -q')
     run('apt upgrade -qy')
-    run('apt install tmux git-core vim unzip -qy')
+    run('apt install tmux git-core vim unzip fail2ban -qy')
     run('update-alternatives --set editor /usr/bin/vim.basic')
 
     put('./sudoers', '/etc/sudoers', mode=0440)
