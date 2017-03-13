@@ -80,7 +80,7 @@ def do_create_admin(server_name):
     return admin_password
 
 
-def do_create_web_user(server_name):
+def do_create_web_user(server_name, project_name):
     # Create web user
     run('useradd --system --shell=/bin/bash --home=/var/web --create-home web')
     sudo('ssh-keygen -t rsa -f /var/web/.ssh/id_rsa -C "web@%s" -q -N ""' % server_name, user='web', shell=False)
@@ -216,7 +216,7 @@ def do_ember(project_name):
     aws_secret_access_key = prompt('AWS Secret Access Key: ')
     do_basics(server_name)
     do_create_admin(server_name)
-    do_create_web_user(server_name)
+    do_create_web_user(server_name, project_name)
     do_install_nginx(domain_name)
     do_install_supervisor()
     do_configure_aws(aws_access_key_id, aws_secret_access_key)
@@ -242,7 +242,7 @@ def do_phoenix(project_name):
     email = prompt('Email (for letsencrypt): ', default='admin@%s.com' % project_name)
     do_basics(server_name)
     do_create_admin(server_name)
-    do_create_web_user(server_name)
+    do_create_web_user(server_name, project_name)
     do_install_postgres(server_name)
     do_install_nginx(domain_name)
     put('./phoenix-nginx.conf', '/etc/nginx/sites-available/%s.conf' % domain_name, mode=0644)
